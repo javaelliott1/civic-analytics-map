@@ -355,12 +355,18 @@ async function loadData() {
 }
 
 function initMap(tracts) {
+  const greaterNycBounds = [
+    [-74.35, 40.45],
+    [-73.62, 40.98],
+  ];
   const map = new maplibregl.Map({
     container: "map",
     center: [-73.94, 40.705],
     zoom: 10.15,
     minZoom: 9,
     maxZoom: 16,
+    maxBounds: greaterNycBounds,
+    renderWorldCopies: false,
     style: {
       version: 8,
       sources: {

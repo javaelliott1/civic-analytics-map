@@ -26,6 +26,7 @@ body {
 button,
 select {
   font: inherit;
+  max-width: 100%;
 }
 
 .app-shell {
@@ -155,8 +156,12 @@ h2 {
 
 .controls {
   display: grid;
-  grid-template-columns: 1.1fr 1fr 1fr;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.9fr) minmax(0, 1fr);
   gap: 12px;
+}
+
+.controls > div {
+  min-width: 0;
 }
 
 label {
@@ -165,16 +170,21 @@ label {
   color: #4e5d6b;
   font-size: 12px;
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 select {
   width: 100%;
+  min-width: 0;
   min-height: 40px;
   border: 1px solid #cbd5dc;
   border-radius: 7px;
   background: #fff;
   color: var(--ink);
-  padding: 8px 10px;
+  padding: 8px 30px 8px 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .stats {
@@ -291,9 +301,18 @@ select {
   gap: 10px;
   color: #4b5a66;
   font-size: 12px;
+  min-width: 0;
+}
+
+.space-meta span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .band {
+  flex: 0 0 auto;
   min-width: 62px;
   text-align: center;
   padding: 4px 7px;
@@ -350,6 +369,14 @@ select {
     left: 12px;
     bottom: 12px;
     flex-wrap: wrap;
+  }
+
+  .controls {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .controls > div:first-child {
+    grid-column: 1 / -1;
   }
 }
 
