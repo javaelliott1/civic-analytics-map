@@ -7,7 +7,7 @@ const typeLabels = {
   wpaa: "Waterfront",
 };
 
-const appVersion = "20260503-walk-transit-data";
+const appVersion = "20260503-remove-is145";
 
 const state = {
   modes: new Map(),

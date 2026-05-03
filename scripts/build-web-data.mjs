@@ -7,6 +7,10 @@ const dataDir = path.join(root, "data");
 const outDir = path.join(root, "web", "data");
 
 const thresholds = [10, 20, 30];
+const excludedSpaceIds = new Set([
+  // I.S. 145 Joseph Pulitzer is miscoded as walkable from distant Brooklyn tracts.
+  "stp-schoolyard-playground",
+]);
 const modeSources = [
   {
     id: "walk",
@@ -196,6 +200,7 @@ function makePublicSpaceGeoJson(publicSpaces) {
 
   for (const row of publicSpaces) {
     if (!row.space_id || seen.has(row.space_id)) continue;
+    if (excludedSpaceIds.has(row.space_id)) continue;
     const longitude = Number(row.longitude);
     const latitude = Number(row.latitude);
     if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) continue;
@@ -230,7 +235,13 @@ function makeAccessRows(rows) {
         min_walk: Number(minutes),
       };
     })
-    .filter((row) => row.geoid && row.space_id && Number.isFinite(row.min_walk))
+    .filter(
+      (row) =>
+        row.geoid &&
+        row.space_id &&
+        !excludedSpaceIds.has(row.space_id) &&
+        Number.isFinite(row.min_walk),
+    )
     .sort((a, b) => a.geoid.localeCompare(b.geoid) || a.min_walk - b.min_walk);
 }
 
