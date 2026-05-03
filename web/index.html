@@ -33,6 +33,13 @@
 
         <section class="controls" aria-label="Filters">
           <div>
+            <label for="modeFilter">Mode</label>
+            <select id="modeFilter">
+              <option value="walk" selected>Walking</option>
+              <option value="walk_transit">Walking + transit</option>
+            </select>
+          </div>
+          <div>
             <label for="threshold">Walk time</label>
             <select id="threshold">
               <option value="10">10 minutes</option>
@@ -59,9 +66,13 @@
           </div>
         </section>
 
-        <section class="type-breakdown" aria-label="Counts by public space type">
-          <h2>By Type</h2>
-          <div id="typeCounts" class="type-counts empty">Choose a tract to begin.</div>
+        <section class="type-breakdown" aria-label="Public space type distribution">
+          <div class="chart-heading">
+            <h2>Type Distribution</h2>
+            <span id="chartMeta"></span>
+          </div>
+          <canvas id="typeChart" width="680" height="260"></canvas>
+          <p id="chartEmpty" class="chart-empty">Choose a tract to begin.</p>
         </section>
 
         <section class="space-results" aria-label="Nearest public spaces">

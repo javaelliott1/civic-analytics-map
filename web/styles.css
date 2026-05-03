@@ -7,7 +7,6 @@
   --muted: #66717f;
   --line: #d9e0e5;
   --panel: #fbfcfb;
-  --water: #d8e8ec;
   --tract: #23495f;
   --ten: #d83f31;
   --twenty: #f0a51b;
@@ -21,7 +20,7 @@
 body {
   margin: 0;
   color: var(--ink);
-  background: #eef3f1;
+  background: #071017;
 }
 
 button,
@@ -52,11 +51,11 @@ select {
   display: flex;
   gap: 12px;
   padding: 10px 12px;
-  border: 1px solid rgba(24, 32, 42, 0.12);
+  border: 1px solid rgba(224, 236, 239, 0.14);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 10px 30px rgba(24, 32, 42, 0.12);
-  color: #334151;
+  background: rgba(10, 19, 27, 0.86);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+  color: #d8e6eb;
   font-size: 13px;
 }
 
@@ -138,7 +137,7 @@ h2 {
 
 .controls {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1.1fr 1fr 1fr;
   gap: 12px;
 }
 
@@ -196,30 +195,33 @@ select {
   gap: 10px;
 }
 
-.type-counts {
+.chart-heading {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
 }
 
-.type-counts.empty {
+.chart-heading span {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
 }
 
-.type-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 9px;
+#typeChart {
+  display: block;
+  width: 100%;
+  height: 150px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
-  color: #2d3a45;
-  font-size: 13px;
 }
 
-.type-pill strong {
+.chart-empty {
+  min-height: 68px;
+  padding: 18px;
+  border: 1px dashed #c6d0d8;
+  border-radius: 8px;
+  color: var(--muted);
   font-size: 14px;
 }
 

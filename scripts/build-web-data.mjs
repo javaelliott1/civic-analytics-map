@@ -1,4 +1,5 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
 import path from "node:path";
 
 const root = process.cwd();
@@ -6,6 +7,22 @@ const dataDir = path.join(root, "data");
 const outDir = path.join(root, "web", "data");
 
 const thresholds = [10, 20, 30];
+const modeSources = [
+  {
+    id: "walk",
+    label: "Walking",
+    source: "ps_and_centroids.csv",
+    accessOut: "walk_space_access.csv",
+    summariesOut: "walk_tract_summaries.json",
+  },
+  {
+    id: "walk_transit",
+    label: "Walking + transit",
+    source: "transit_ps_and_centroids.csv",
+    accessOut: "walk_transit_space_access.csv",
+    summariesOut: "walk_transit_tract_summaries.json",
+  },
+];
 
 function parseCsv(text) {
   const rows = [];
@@ -243,34 +260,69 @@ function makeSummaries(accessRows) {
   return [...byTract.values()].sort((a, b) => a.geoid.localeCompare(b.geoid));
 }
 
+async function pathExists(filePath) {
+  try {
+    await access(filePath, constants.R_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function accessRowsToCsv(accessRows) {
+  return [
+    "geoid,space_id,type,min_walk",
+    ...accessRows.map((row) =>
+      [row.geoid, row.space_id, row.type, row.min_walk.toFixed(2)].map(csvEscape).join(","),
+    ),
+  ].join("\n");
+}
+
 await mkdir(outDir, { recursive: true });
 
-const [acsRows, publicSpaces, accessSourceRows] = await Promise.all([
+const [acsRows, publicSpaces] = await Promise.all([
   readFile(path.join(dataDir, "nyc_acs.csv"), "utf8").then(parseCsv),
   readFile(path.join(dataDir, "nyc-public-space.csv"), "utf8").then(parseCsv),
-  readFile(path.join(dataDir, "ps_and_centroids.csv"), "utf8").then(parseCsv),
 ]);
 
 const tracts = makeTractGeoJson(acsRows);
 const spaces = makePublicSpaceGeoJson(publicSpaces);
-const accessRows = makeAccessRows(accessSourceRows);
-const summaries = makeSummaries(accessRows);
+const modeManifest = [];
 
-const accessCsv = [
-  "geoid,space_id,type,min_walk",
-  ...accessRows.map((row) =>
-    [row.geoid, row.space_id, row.type, row.min_walk.toFixed(2)].map(csvEscape).join(","),
-  ),
-].join("\n");
+for (const mode of modeSources) {
+  const sourcePath = path.join(dataDir, mode.source);
+  const available = await pathExists(sourcePath);
+  const sourceRows = available ? await readFile(sourcePath, "utf8").then(parseCsv) : [];
+  const accessRows = makeAccessRows(sourceRows);
+  const summaries = makeSummaries(accessRows);
+
+  await Promise.all([
+    writeFile(path.join(outDir, mode.accessOut), accessRowsToCsv(accessRows)),
+    writeFile(path.join(outDir, mode.summariesOut), JSON.stringify(summaries)),
+  ]);
+
+  modeManifest.push({
+    id: mode.id,
+    label: mode.label,
+    source: mode.source,
+    access: mode.accessOut,
+    summaries: mode.summariesOut,
+    available,
+    rows: accessRows.length,
+    tracts: summaries.length,
+  });
+}
 
 await Promise.all([
   writeFile(path.join(outDir, "tracts.geojson"), JSON.stringify(tracts)),
   writeFile(path.join(outDir, "public_spaces.geojson"), JSON.stringify(spaces)),
-  writeFile(path.join(outDir, "tract_space_access.csv"), accessCsv),
-  writeFile(path.join(outDir, "tract_summaries.json"), JSON.stringify(summaries)),
+  writeFile(path.join(outDir, "modes.json"), JSON.stringify(modeManifest)),
 ]);
 
 console.log(`Wrote ${tracts.features.length} tracts`);
 console.log(`Wrote ${spaces.features.length} public spaces`);
-console.log(`Wrote ${accessRows.length} tract-space access rows`);
-console.log(`Wrote ${summaries.length} tract summaries`);
+for (const mode of modeManifest) {
+  console.log(
+    `Wrote ${mode.rows} ${mode.label.toLowerCase()} access rows across ${mode.tracts} tracts`,
+  );
+}

@@ -1,4 +1,3 @@
-const thresholds = [10, 20, 30];
 const typeLabels = {
   misc: "Misc",
   park: "Parks",
@@ -9,33 +8,43 @@ const typeLabels = {
 };
 
 const state = {
-  accessByTract: new Map(),
+  modes: new Map(),
   spacesById: new Map(),
-  summariesByTract: new Map(),
   selectedTract: null,
   selectedPoint: null,
+  activeMode: "walk",
   activeThreshold: 30,
   activeType: "all",
+  map: null,
 };
 
 const els = {
+  modeFilter: document.querySelector("#modeFilter"),
   threshold: document.querySelector("#threshold"),
   typeFilter: document.querySelector("#typeFilter"),
   statusText: document.querySelector("#statusText"),
   totalCount: document.querySelector("#totalCount"),
   tractId: document.querySelector("#tractId"),
-  typeCounts: document.querySelector("#typeCounts"),
+  typeChart: document.querySelector("#typeChart"),
+  chartMeta: document.querySelector("#chartMeta"),
+  chartEmpty: document.querySelector("#chartEmpty"),
   spaceList: document.querySelector("#spaceList"),
   resultMeta: document.querySelector("#resultMeta"),
 };
 
 function parseCsv(text) {
-  const lines = text.trim().split(/\r?\n/);
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+  const lines = trimmed.split(/\r?\n/);
   const headers = lines.shift().split(",");
   return lines.map((line) => {
     const values = line.split(",");
     return Object.fromEntries(headers.map((header, index) => [header, values[index] ?? ""]));
   });
+}
+
+function currentMode() {
+  return state.modes.get(state.activeMode);
 }
 
 function walkBand(minutes) {
@@ -57,11 +66,20 @@ function escapeHtml(value) {
 }
 
 function rowsForCurrentSelection() {
-  if (!state.selectedTract) return [];
-  return (state.accessByTract.get(state.selectedTract) || [])
+  const mode = currentMode();
+  if (!state.selectedTract || !mode?.available) return [];
+  return (mode.accessByTract.get(state.selectedTract) || [])
     .filter((row) => row.min_walk <= state.activeThreshold)
     .filter((row) => state.activeType === "all" || row.type === state.activeType)
     .sort((a, b) => a.min_walk - b.min_walk);
+}
+
+function rowsForChart() {
+  const mode = currentMode();
+  if (!state.selectedTract || !mode?.available) return [];
+  return (mode.accessByTract.get(state.selectedTract) || []).filter(
+    (row) => row.min_walk <= state.activeThreshold,
+  );
 }
 
 function publicSpaceFeatureCollection(rows) {
@@ -85,57 +103,130 @@ function publicSpaceFeatureCollection(rows) {
 }
 
 function renderTypeFilters(types) {
+  const previous = els.typeFilter.value;
+  els.typeFilter.innerHTML = '<option value="all">All public spaces</option>';
   for (const type of types) {
     const option = document.createElement("option");
     option.value = type;
     option.textContent = formatType(type);
     els.typeFilter.append(option);
   }
+  els.typeFilter.value = types.includes(previous) ? previous : "all";
+  state.activeType = els.typeFilter.value;
+}
+
+function renderModeOptions() {
+  els.modeFilter.innerHTML = "";
+  for (const mode of state.modes.values()) {
+    const option = document.createElement("option");
+    option.value = mode.id;
+    option.textContent = mode.available ? mode.label : `${mode.label} (data needed)`;
+    els.modeFilter.append(option);
+  }
+  els.modeFilter.value = state.activeMode;
+}
+
+function drawTypeChart(rows) {
+  const ctx = els.typeChart.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  const rect = els.typeChart.getBoundingClientRect();
+  els.typeChart.width = Math.max(1, Math.floor(rect.width * dpr));
+  els.typeChart.height = Math.max(1, Math.floor(rect.height * dpr));
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, rect.width, rect.height);
+
+  if (!rows.length) {
+    els.typeChart.hidden = true;
+    els.chartEmpty.hidden = false;
+    els.chartMeta.textContent = "";
+    return;
+  }
+
+  els.typeChart.hidden = false;
+  els.chartEmpty.hidden = true;
+
+  const counts = new Map();
+  for (const row of rows) {
+    counts.set(row.type, (counts.get(row.type) || 0) + 1);
+  }
+  const entries = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  const max = Math.max(...entries.map(([, count]) => count));
+  const total = entries.reduce((sum, [, count]) => sum + count, 0);
+
+  els.chartMeta.textContent = `${total.toLocaleString()} spaces`;
+
+  const paddingLeft = 94;
+  const paddingRight = 14;
+  const barGap = 10;
+  const barHeight = Math.min(26, (rect.height - 18 - barGap * (entries.length - 1)) / entries.length);
+  const chartWidth = rect.width - paddingLeft - paddingRight;
+  const colors = ["#d83f31", "#f0a51b", "#4f8a3d", "#4b9cc2", "#b369bc", "#d96d3b"];
+
+  ctx.font = "12px Inter, system-ui, sans-serif";
+  ctx.textBaseline = "middle";
+
+  entries.forEach(([type, count], index) => {
+    const y = 12 + index * (barHeight + barGap);
+    const width = Math.max(4, (count / max) * chartWidth);
+    const percent = Math.round((count / total) * 100);
+
+    ctx.fillStyle = "#526170";
+    ctx.textAlign = "right";
+    ctx.fillText(formatType(type), paddingLeft - 10, y + barHeight / 2);
+
+    ctx.fillStyle = "rgba(36, 49, 60, 0.08)";
+    ctx.fillRect(paddingLeft, y, chartWidth, barHeight);
+
+    ctx.fillStyle = colors[index % colors.length];
+    ctx.fillRect(paddingLeft, y, width, barHeight);
+
+    ctx.fillStyle = "#18202a";
+    ctx.textAlign = "left";
+    ctx.fillText(`${count.toLocaleString()} (${percent}%)`, paddingLeft + width + 8, y + barHeight / 2);
+  });
 }
 
 function renderPanel() {
+  const mode = currentMode();
+  const noSelection =
+    "The map will snap your click to a census tract and show nearby public spaces within a 30 minute walk.";
+
+  if (!mode?.available) {
+    els.statusText.textContent = `${mode?.label || "This mode"} is wired into the app, but its source data has not been generated yet. Run the transit export script, then rebuild web data.`;
+    els.totalCount.textContent = "-";
+    els.tractId.textContent = state.selectedTract ? state.selectedTract.slice(-6) : "-";
+    drawTypeChart([]);
+    els.spaceList.innerHTML =
+      '<li class="empty-list">Transit mode needs <code>data/transit_ps_and_centroids.csv</code>.</li>';
+    els.resultMeta.textContent = "";
+    return;
+  }
+
   if (!state.selectedTract) {
-    els.statusText.textContent =
-      "The map will snap your click to a census tract and show nearby public spaces within a 30 minute walk.";
+    els.statusText.textContent = noSelection;
     els.totalCount.textContent = "-";
     els.tractId.textContent = "-";
-    els.typeCounts.className = "type-counts empty";
-    els.typeCounts.textContent = "Choose a tract to begin.";
+    drawTypeChart([]);
+    els.chartEmpty.textContent = "Choose a tract to begin.";
     els.spaceList.innerHTML = "";
     els.resultMeta.textContent = "";
     return;
   }
 
   const rows = rowsForCurrentSelection();
-  const summary = state.summariesByTract.get(state.selectedTract);
-  const totalForThreshold = summary?.[`total_${state.activeThreshold}`] ?? rows.length;
+  const chartRows = rowsForChart();
+  const summary = mode.summariesByTract.get(state.selectedTract);
+  const totalForThreshold = summary?.[`total_${state.activeThreshold}`] ?? chartRows.length;
   const total =
     state.activeType === "all"
       ? totalForThreshold
       : summary?.by_type?.[state.activeType]?.[`total_${state.activeThreshold}`] ?? rows.length;
 
-  els.statusText.textContent = `Showing public spaces near census tract ${state.selectedTract}.`;
+  els.statusText.textContent = `Showing ${mode.label.toLowerCase()} access near census tract ${state.selectedTract}.`;
   els.totalCount.textContent = total.toLocaleString();
   els.tractId.textContent = state.selectedTract.slice(-6);
   els.resultMeta.textContent = `${rows.length.toLocaleString()} shown`;
-
-  const byType = new Map();
-  for (const row of (state.accessByTract.get(state.selectedTract) || []).filter(
-    (item) => item.min_walk <= state.activeThreshold,
-  )) {
-    byType.set(row.type, (byType.get(row.type) || 0) + 1);
-  }
-
-  els.typeCounts.className = "type-counts";
-  els.typeCounts.innerHTML = [...byType.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(
-      ([type, count]) =>
-        `<span class="type-pill"><strong>${count.toLocaleString()}</strong>${escapeHtml(
-          formatType(type),
-        )}</span>`,
-    )
-    .join("");
+  drawTypeChart(chartRows);
 
   if (!rows.length) {
     els.spaceList.innerHTML =
@@ -161,49 +252,46 @@ function renderPanel() {
     .join("");
 }
 
-function updateMapSources(map) {
+function updateMapSources() {
+  if (!state.map?.getSource("selected-spaces")) return;
   const rows = rowsForCurrentSelection();
-  const visibleSpaces = publicSpaceFeatureCollection(rows);
-  map.getSource("selected-spaces")?.setData(visibleSpaces);
+  state.map.getSource("selected-spaces").setData(publicSpaceFeatureCollection(rows));
 
   const selectedFilter = state.selectedTract
     ? ["==", ["get", "geoid"], state.selectedTract]
     : ["==", ["get", "geoid"], ""];
-  if (map.getLayer("selected-tract-fill")) {
-    map.setFilter("selected-tract-fill", selectedFilter);
+  if (state.map.getLayer("selected-tract-fill")) {
+    state.map.setFilter("selected-tract-fill", selectedFilter);
   }
-  if (map.getLayer("selected-tract-line")) {
-    map.setFilter("selected-tract-line", selectedFilter);
+  if (state.map.getLayer("selected-tract-line")) {
+    state.map.setFilter("selected-tract-line", selectedFilter);
   }
 }
 
-function clearSelection(map) {
+function clearSelection() {
   state.selectedTract = null;
   state.selectedPoint = null;
-  updateMapSources(map);
+  updateMapSources();
   renderPanel();
 }
 
-function selectTract(map, feature, lngLat) {
+function selectTract(feature, lngLat) {
   state.selectedTract = feature.properties.geoid;
   state.selectedPoint = [lngLat.lng, lngLat.lat];
-  updateMapSources(map);
+  updateMapSources();
   renderPanel();
 }
 
-async function loadData() {
-  const [tracts, spaces, accessCsv, summaries] = await Promise.all([
-    fetch("./data/tracts.geojson").then((response) => response.json()),
-    fetch("./data/public_spaces.geojson").then((response) => response.json()),
-    fetch("./data/tract_space_access.csv").then((response) => response.text()),
-    fetch("./data/tract_summaries.json").then((response) => response.json()),
+async function loadMode(modeInfo) {
+  const [accessCsv, summaries] = await Promise.all([
+    fetch(`./data/${modeInfo.access}`).then((response) => response.text()),
+    fetch(`./data/${modeInfo.summaries}`).then((response) => response.json()),
   ]);
 
-  for (const feature of spaces.features) {
-    state.spacesById.set(feature.properties.space_id, feature);
-  }
-
+  const accessByTract = new Map();
+  const summariesByTract = new Map();
   const types = new Set();
+
   for (const row of parseCsv(accessCsv)) {
     const parsed = {
       geoid: row.geoid,
@@ -213,21 +301,46 @@ async function loadData() {
     };
     if (!Number.isFinite(parsed.min_walk)) continue;
     types.add(parsed.type);
-    if (!state.accessByTract.has(parsed.geoid)) {
-      state.accessByTract.set(parsed.geoid, []);
+    if (!accessByTract.has(parsed.geoid)) {
+      accessByTract.set(parsed.geoid, []);
     }
-    state.accessByTract.get(parsed.geoid).push(parsed);
+    accessByTract.get(parsed.geoid).push(parsed);
   }
 
-  for (const rows of state.accessByTract.values()) {
+  for (const rows of accessByTract.values()) {
     rows.sort((a, b) => a.min_walk - b.min_walk);
   }
 
   for (const summary of summaries) {
-    state.summariesByTract.set(summary.geoid, summary);
+    summariesByTract.set(summary.geoid, summary);
   }
 
-  renderTypeFilters([...types].sort());
+  return {
+    ...modeInfo,
+    accessByTract,
+    summariesByTract,
+    types: [...types].sort(),
+  };
+}
+
+async function loadData() {
+  const [tracts, spaces, modeManifest] = await Promise.all([
+    fetch("./data/tracts.geojson").then((response) => response.json()),
+    fetch("./data/public_spaces.geojson").then((response) => response.json()),
+    fetch("./data/modes.json").then((response) => response.json()),
+  ]);
+
+  for (const feature of spaces.features) {
+    state.spacesById.set(feature.properties.space_id, feature);
+  }
+
+  const modes = await Promise.all(modeManifest.map(loadMode));
+  for (const mode of modes) {
+    state.modes.set(mode.id, mode);
+  }
+
+  renderModeOptions();
+  renderTypeFilters(currentMode()?.types || []);
   return { tracts };
 }
 
@@ -241,17 +354,29 @@ function initMap(tracts) {
     style: {
       version: 8,
       sources: {
-        osm: {
+        cartoDark: {
           type: "raster",
-          tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+          tiles: [
+            "https://a.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png",
+            "https://b.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png",
+            "https://c.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png",
+          ],
           tileSize: 256,
-          attribution: "© OpenStreetMap contributors",
+          attribution: "© OpenStreetMap contributors © CARTO",
         },
       },
-      layers: [{ id: "osm", type: "raster", source: "osm" }],
+      layers: [
+        {
+          id: "carto-dark",
+          type: "raster",
+          source: "cartoDark",
+          paint: { "raster-opacity": 0.92 },
+        },
+      ],
     },
   });
 
+  state.map = map;
   map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-left");
 
   map.on("load", () => {
@@ -266,8 +391,8 @@ function initMap(tracts) {
       type: "fill",
       source: "tracts",
       paint: {
-        "fill-color": "#23495f",
-        "fill-opacity": 0.06,
+        "fill-color": "#243542",
+        "fill-opacity": 0.1,
       },
     });
 
@@ -276,9 +401,9 @@ function initMap(tracts) {
       type: "line",
       source: "tracts",
       paint: {
-        "line-color": "#2d5266",
-        "line-opacity": 0.34,
-        "line-width": 0.45,
+        "line-color": "#6f8792",
+        "line-opacity": 0.28,
+        "line-width": 0.5,
       },
     });
 
@@ -288,8 +413,8 @@ function initMap(tracts) {
       source: "tracts",
       filter: ["==", ["get", "geoid"], ""],
       paint: {
-        "fill-color": "#1f6376",
-        "fill-opacity": 0.28,
+        "fill-color": "#67b8c7",
+        "fill-opacity": 0.25,
       },
     });
 
@@ -299,7 +424,7 @@ function initMap(tracts) {
       source: "tracts",
       filter: ["==", ["get", "geoid"], ""],
       paint: {
-        "line-color": "#102f3d",
+        "line-color": "#d7fbff",
         "line-width": 2,
       },
     });
@@ -321,19 +446,19 @@ function initMap(tracts) {
           "#4f8a3d",
           "#4f8a3d",
         ],
-        "circle-stroke-color": "#ffffff",
-        "circle-stroke-width": 1.2,
-        "circle-opacity": 0.9,
+        "circle-stroke-color": "#071017",
+        "circle-stroke-width": 1.4,
+        "circle-opacity": 0.95,
       },
     });
 
     map.on("click", (event) => {
       const features = map.queryRenderedFeatures(event.point, { layers: ["tract-fill"] });
       if (!features.length) {
-        clearSelection(map);
+        clearSelection();
         return;
       }
-      selectTract(map, features[0], event.lngLat);
+      selectTract(features[0], event.lngLat);
     });
 
     map.on("mousemove", (event) => {
@@ -346,20 +471,31 @@ function initMap(tracts) {
     });
   });
 
-  els.threshold.addEventListener("change", () => {
-    state.activeThreshold = Number(els.threshold.value);
-    updateMapSources(map);
-    renderPanel();
-  });
-
-  els.typeFilter.addEventListener("change", () => {
-    state.activeType = els.typeFilter.value;
-    updateMapSources(map);
-    renderPanel();
-  });
-
   return map;
 }
+
+els.modeFilter.addEventListener("change", () => {
+  state.activeMode = els.modeFilter.value;
+  renderTypeFilters(currentMode()?.types || []);
+  updateMapSources();
+  renderPanel();
+});
+
+els.threshold.addEventListener("change", () => {
+  state.activeThreshold = Number(els.threshold.value);
+  updateMapSources();
+  renderPanel();
+});
+
+els.typeFilter.addEventListener("change", () => {
+  state.activeType = els.typeFilter.value;
+  updateMapSources();
+  renderPanel();
+});
+
+window.addEventListener("resize", () => {
+  renderPanel();
+});
 
 loadData()
   .then(({ tracts }) => {
