@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NYC Public Space Access</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="map-wrap" aria-label="Interactive NYC public space access map">
+        <div id="map"></div>
+        <div class="legend" aria-label="Walking time legend">
+          <div><span class="swatch swatch-10"></span>10 min</div>
+          <div><span class="swatch swatch-20"></span>20 min</div>
+          <div><span class="swatch swatch-30"></span>30 min</div>
+        </div>
+      </section>
+
+      <aside class="panel" aria-live="polite">
+        <header class="panel-header">
+          <p class="eyebrow">NYC Public Space Access</p>
+          <h1>Click where you live, work, or spend time.</h1>
+          <p id="statusText">
+            The map will snap your click to a census tract and show nearby public
+            spaces within a 30 minute walk.
+          </p>
+        </header>
+
+        <section class="controls" aria-label="Filters">
+          <div>
+            <label for="threshold">Walk time</label>
+            <select id="threshold">
+              <option value="10">10 minutes</option>
+              <option value="20">20 minutes</option>
+              <option value="30" selected>30 minutes</option>
+            </select>
+          </div>
+          <div>
+            <label for="typeFilter">Space type</label>
+            <select id="typeFilter">
+              <option value="all" selected>All public spaces</option>
+            </select>
+          </div>
+        </section>
+
+        <section class="stats" aria-label="Selected tract summary">
+          <div>
+            <span id="totalCount">-</span>
+            <p>spaces nearby</p>
+          </div>
+          <div>
+            <span id="tractId">-</span>
+            <p>selected tract</p>
+          </div>
+        </section>
+
+        <section class="type-breakdown" aria-label="Counts by public space type">
+          <h2>By Type</h2>
+          <div id="typeCounts" class="type-counts empty">Choose a tract to begin.</div>
+        </section>
+
+        <section class="space-results" aria-label="Nearest public spaces">
+          <div class="list-heading">
+            <h2>Nearest Spaces</h2>
+            <span id="resultMeta"></span>
+          </div>
+          <ol id="spaceList" class="space-list"></ol>
+        </section>
+      </aside>
+    </main>
+
+    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>
