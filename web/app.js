@@ -30,6 +30,7 @@ const els = {
   chartEmpty: document.querySelector("#chartEmpty"),
   spaceList: document.querySelector("#spaceList"),
   resultMeta: document.querySelector("#resultMeta"),
+  mapNotice: document.querySelector("#mapNotice"),
 };
 
 function parseCsv(text) {
@@ -124,6 +125,15 @@ function renderModeOptions() {
     els.modeFilter.append(option);
   }
   els.modeFilter.value = state.activeMode;
+}
+
+function showMapNotice(message) {
+  els.mapNotice.textContent = message;
+  els.mapNotice.hidden = false;
+}
+
+function hideMapNotice() {
+  els.mapNotice.hidden = true;
 }
 
 function drawTypeChart(rows) {
@@ -354,32 +364,47 @@ function initMap(tracts) {
     style: {
       version: 8,
       sources: {
-        cartoDark: {
+        osm: {
           type: "raster",
-          tiles: [
-            "https://a.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png",
-            "https://b.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png",
-            "https://c.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png",
-          ],
+          tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
           tileSize: 256,
-          attribution: "© OpenStreetMap contributors © CARTO",
+          attribution: "© OpenStreetMap contributors",
         },
       },
       layers: [
         {
-          id: "carto-dark",
+          id: "background",
+          type: "background",
+          paint: { "background-color": "#071017" },
+        },
+        {
+          id: "osm-muted",
           type: "raster",
-          source: "cartoDark",
-          paint: { "raster-opacity": 0.92 },
+          source: "osm",
+          paint: {
+            "raster-brightness-min": 0.03,
+            "raster-brightness-max": 0.48,
+            "raster-contrast": 0.28,
+            "raster-opacity": 0.62,
+            "raster-saturation": -0.9,
+          },
         },
       ],
     },
   });
 
   state.map = map;
+  map.on("error", (event) => {
+    console.warn(event?.error || event);
+    showMapNotice(
+      "Some map tiles failed to load. The tract layer should still be clickable once the data finishes loading.",
+    );
+  });
+
   map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-left");
 
   map.on("load", () => {
+    hideMapNotice();
     map.addSource("tracts", { type: "geojson", data: tracts });
     map.addSource("selected-spaces", {
       type: "geojson",
@@ -504,6 +529,9 @@ loadData()
   })
   .catch((error) => {
     console.error(error);
+    showMapNotice(
+      "The app data did not load. If this was opened as a file, use GitHub Pages or run a local server so the browser can fetch the data files.",
+    );
     els.statusText.textContent =
       "The web data did not load. Run `node scripts/build-web-data.mjs` from the project root and refresh.";
   });

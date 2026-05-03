@@ -42,6 +42,23 @@ select {
 #map {
   position: absolute;
   inset: 0;
+  background: #071017;
+}
+
+.map-notice {
+  position: absolute;
+  top: 18px;
+  left: 68px;
+  max-width: min(420px, calc(100% - 90px));
+  padding: 12px 14px;
+  border: 1px solid rgba(224, 236, 239, 0.16);
+  border-radius: 8px;
+  background: rgba(10, 19, 27, 0.9);
+  color: #d8e6eb;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.28);
+  font-size: 13px;
+  line-height: 1.45;
+  z-index: 3;
 }
 
 .legend {
