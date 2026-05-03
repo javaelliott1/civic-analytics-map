@@ -7,7 +7,7 @@ library(tidycensus)
 
 load_dot_env()
 census_api_key(Sys.getenv("CENSUS_API_KEY"), install = FALSE)
-ps_and_centroids <- read_csv('data/ps_and_centroids.csv')
+walk_ps_centroids <- read_csv('data/walk-ps-centroids.csv')
 
 nyc_acs <- get_acs(
   geography = "tract",
@@ -38,7 +38,7 @@ nyc_acs <- get_acs(
 #ACS use
 acs_w_dist <- dplyr::inner_join(
   nyc_acs,
-  ps_and_centroids |> mutate(geoid = as.character(geoid)),
+  walk_ps_centroids |> mutate(geoid = as.character(geoid)),
   by=c('GEOID'='geoid'),
   relationship = 'many-to-many'
 ) |>
@@ -51,17 +51,17 @@ type_cors <- lapply(acs_w_dist$type |> unique(),function(t){
     x = acs_w_dist |> 
        as.data.frame() |>
        filter(type==t) |>
-       select(starts_with("demo_"),min_walk) |> 
+       select(starts_with("demo_"),travel_time_p50) |> 
        na.omit()
     ),2)
   
-  cormat['min_walk',]
+  cormat['travel_time_p50',]
 })
 
 type_cors |> 
   bind_rows() |>
   mutate(type = acs_w_dist$type |> unique()) |> 
-  select(-min_walk) |> 
+  select(-travel_time_p50) |> 
   pivot_longer(
     -type,
     names_to = 'var',

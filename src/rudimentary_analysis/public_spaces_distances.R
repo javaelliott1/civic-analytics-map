@@ -51,7 +51,7 @@ nyc_buffers <- st_buffer(nyc_map %>% st_point_on_surface(), dist = ft) %>%
     ) %>%
   dplyr::select(geoid,geometry,tract_centroids)
 
-ps_and_centroids <- ps_proj %>%
+walk_ps_centroids <- ps_proj %>%
   st_join(nyc_buffers,join=st_intersects,left=FALSE) |>
   mutate(
     distance = as.numeric( st_distance(geometry,tract_centroids,by_element = TRUE) ),
@@ -72,18 +72,23 @@ unwalkables <- c(
   "park-hart-island"
 )
 
-ps_and_centroids <- ps_and_centroids |> 
+walk_ps_centroids <- walk_ps_centroids |> 
   as.data.frame() |>
   filter(!(space_id %in% unwalkables)) |> 
-  select(-geometry,-tract_centroids)
+  transmute(
+    geoid,
+    space_id,
+    type,
+    travel_time_p50 = min_walk
+  )
 
 #what do these distances look like? is it a ring of public spaces, or are they dispersed within the buffer?
-ps_and_centroids |> 
+walk_ps_centroids |> 
   as.data.frame() |>
-  group_by(geoid) |> 
+  group_by(geoid) |>
   summarise(
-    mn_min_walk = mean(min_walk),.groups='drop'
-  ) |> 
+    mn_min_walk = mean(travel_time_p50),.groups='drop'
+  ) |>
   ggplot(aes(x=mn_min_walk)) + geom_histogram() + 
   labs(
     title =  "Mean Minute Walks to Public Spaces Across Tracts"
@@ -100,4 +105,4 @@ ps_and_centroids |>
 #than some place that is decently car-frequent and doesn't have the space to fit one.
 
 #but it begs a question, is that choice equitable?
-write_csv(ps_and_centroids,'data/ps_and_centroids.csv')
+write_csv(walk_ps_centroids,'data/walk-ps-centroids.csv')

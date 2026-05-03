@@ -44,7 +44,7 @@ travel_times <- travel_time_matrix(
   max_trip_duration = 30
 )
 
-transit_ps_and_centroids <- public_spaces |>
+walktransit_ps_centroids <- public_spaces |>
   select(space_id, type) |>
   distinct() |>
   inner_join(travel_times, by = c("space_id" = "to_id")) |>
@@ -52,7 +52,7 @@ transit_ps_and_centroids <- public_spaces |>
     geoid = from_id,
     space_id,
     type,
-    min_walk = travel_time_p50
+    travel_time_p50
   )
 
-write_csv(transit_ps_and_centroids, "data/transit_ps_and_centroids.csv")
+write_csv(walktransit_ps_centroids, "data/walktransit-ps-centroids.csv")

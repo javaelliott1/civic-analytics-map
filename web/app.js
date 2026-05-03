@@ -207,7 +207,7 @@ function renderPanel() {
     els.tractId.textContent = state.selectedTract ? state.selectedTract.slice(-6) : "-";
     drawTypeChart([]);
     els.spaceList.innerHTML =
-      '<li class="empty-list">Transit mode needs <code>data/transit_ps_and_centroids.csv</code>.</li>';
+      '<li class="empty-list">Transit mode needs <code>data/walktransit-ps-centroids.csv</code>.</li>';
     els.resultMeta.textContent = "";
     return;
   }

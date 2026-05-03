@@ -48,7 +48,7 @@ rebuild locally with `node scripts/build-web-data.mjs` and commit the updated
 - `web/data/walk_transit_space_access.csv`
 - `web/data/walk_transit_tract_summaries.json`
 
-The walking access data comes from `data/ps_and_centroids.csv`.
-The transit mode expects `data/transit_ps_and_centroids.csv`, which can be
-created from `src/using_transit/export_ps_and_centroids_transit.R` in an R
-environment with `r5r`.
+The walking access data comes from `data/walk-ps-centroids.csv`.
+The walking + transit access data comes from `data/walktransit-ps-centroids.csv`.
+Both source files use `travel_time_p50`, which is normalized to `min_walk` in
+the generated browser CSVs.

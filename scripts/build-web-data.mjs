@@ -11,14 +11,14 @@ const modeSources = [
   {
     id: "walk",
     label: "Walking",
-    source: "ps_and_centroids.csv",
+    source: "walk-ps-centroids.csv",
     accessOut: "walk_space_access.csv",
     summariesOut: "walk_tract_summaries.json",
   },
   {
     id: "walk_transit",
     label: "Walking + transit",
-    source: "transit_ps_and_centroids.csv",
+    source: "walktransit-ps-centroids.csv",
     accessOut: "walk_transit_space_access.csv",
     summariesOut: "walk_transit_tract_summaries.json",
   },
@@ -221,12 +221,15 @@ function makePublicSpaceGeoJson(publicSpaces) {
 
 function makeAccessRows(rows) {
   return rows
-    .map((row) => ({
-      geoid: String(row.geoid),
-      space_id: row.space_id,
-      type: row.type,
-      min_walk: Number(row.min_walk),
-    }))
+    .map((row) => {
+      const minutes = row.min_walk || row.travel_time_p50;
+      return {
+        geoid: String(row.geoid),
+        space_id: row.space_id,
+        type: row.type,
+        min_walk: Number(minutes),
+      };
+    })
     .filter((row) => row.geoid && row.space_id && Number.isFinite(row.min_walk))
     .sort((a, b) => a.geoid.localeCompare(b.geoid) || a.min_walk - b.min_walk);
 }
