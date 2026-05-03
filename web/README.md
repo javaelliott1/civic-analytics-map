@@ -23,9 +23,18 @@ used to select the matching census tract.
 
 ## GitHub Pages
 
-Commit the repository with the generated `web/data` files and set GitHub Pages
-to publish from the repository root. The root `index.html` redirects to
-`web/index.html`, and all app assets use relative paths so project pages work.
+Pushes to `main` deploy through `.github/workflows/pages.yml`. In the GitHub
+repository settings, set Pages to use **GitHub Actions** as the source. Each push
+publishes the committed `web/` directory as the site root.
+
+The root `index.html` still redirects to `web/` for branch-based Pages or local
+repository browsing, but the Actions deploy serves `web/index.html` directly at
+the Pages URL.
+
+Raw source files in `/data/` are intentionally ignored. The static site still
+needs browser-readable files in `web/data/`, so after changing source data,
+rebuild locally with `node scripts/build-web-data.mjs` and commit the updated
+`web/data` outputs.
 
 ## Data pipeline
 
