@@ -103,12 +103,13 @@ select {
 
 .panel {
   z-index: 2;
-  display: grid;
-  grid-template-rows: auto auto auto auto minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 18px;
   height: 100vh;
   padding: 24px;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   border-left: 1px solid var(--line);
   background: var(--panel);
   box-shadow: -16px 0 38px rgba(36, 49, 60, 0.12);
@@ -243,9 +244,7 @@ select {
 }
 
 .space-results {
-  min-height: 0;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
   gap: 10px;
 }
 
@@ -259,10 +258,8 @@ select {
 .space-list {
   display: grid;
   gap: 8px;
-  min-height: 0;
   margin: 0;
   padding: 0 4px 16px 0;
-  overflow: auto;
   list-style: none;
 }
 
@@ -338,6 +335,7 @@ select {
   .panel {
     height: auto;
     max-height: 48vh;
+    overflow-y: auto;
     border-left: 0;
     border-top: 1px solid var(--line);
     padding: 18px;
