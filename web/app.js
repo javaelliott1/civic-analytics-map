@@ -7,6 +7,8 @@ const typeLabels = {
   wpaa: "Waterfront",
 };
 
+const appVersion = "20260503-walk-transit-data";
+
 const state = {
   modes: new Map(),
   spacesById: new Map(),
@@ -46,6 +48,12 @@ function parseCsv(text) {
 
 function currentMode() {
   return state.modes.get(state.activeMode);
+}
+
+function dataUrl(path) {
+  if (window.location.protocol === "file:") return path;
+  const separator = path.includes("?") ? "&" : "?";
+  return `${path}${separator}v=${appVersion}`;
 }
 
 function walkBand(minutes) {
@@ -208,7 +216,7 @@ function renderPanel() {
     drawTypeChart([]);
     els.spaceList.innerHTML =
       '<li class="empty-list">Transit mode needs <code>data/walktransit-ps-centroids.csv</code>.</li>';
-    els.resultMeta.textContent = "";
+    els.resultMeta.textContent = mode?.rows ? `${mode.rows.toLocaleString()} source rows` : "";
     return;
   }
 
@@ -219,7 +227,7 @@ function renderPanel() {
     drawTypeChart([]);
     els.chartEmpty.textContent = "Choose a tract to begin.";
     els.spaceList.innerHTML = "";
-    els.resultMeta.textContent = "";
+    els.resultMeta.textContent = `${mode.label} · ${mode.rows.toLocaleString()} source rows`;
     return;
   }
 
@@ -235,7 +243,7 @@ function renderPanel() {
   els.statusText.textContent = `Showing ${mode.label.toLowerCase()} access near census tract ${state.selectedTract}.`;
   els.totalCount.textContent = total.toLocaleString();
   els.tractId.textContent = state.selectedTract.slice(-6);
-  els.resultMeta.textContent = `${rows.length.toLocaleString()} shown`;
+  els.resultMeta.textContent = `${mode.label} · ${rows.length.toLocaleString()} shown`;
   drawTypeChart(chartRows);
 
   if (!rows.length) {
@@ -294,8 +302,8 @@ function selectTract(feature, lngLat) {
 
 async function loadMode(modeInfo) {
   const [accessCsv, summaries] = await Promise.all([
-    fetch(`./data/${modeInfo.access}`).then((response) => response.text()),
-    fetch(`./data/${modeInfo.summaries}`).then((response) => response.json()),
+    fetch(dataUrl(`./data/${modeInfo.access}`)).then((response) => response.text()),
+    fetch(dataUrl(`./data/${modeInfo.summaries}`)).then((response) => response.json()),
   ]);
 
   const accessByTract = new Map();
@@ -335,9 +343,9 @@ async function loadMode(modeInfo) {
 
 async function loadData() {
   const [tracts, spaces, modeManifest] = await Promise.all([
-    fetch("./data/tracts.geojson").then((response) => response.json()),
-    fetch("./data/public_spaces.geojson").then((response) => response.json()),
-    fetch("./data/modes.json").then((response) => response.json()),
+    fetch(dataUrl("./data/tracts.geojson")).then((response) => response.json()),
+    fetch(dataUrl("./data/public_spaces.geojson")).then((response) => response.json()),
+    fetch(dataUrl("./data/modes.json")).then((response) => response.json()),
   ]);
 
   for (const feature of spaces.features) {
