@@ -178,7 +178,7 @@ function drawTypeChart(rows) {
   const barGap = 10;
   const barHeight = Math.min(26, (rect.height - 18 - barGap * (entries.length - 1)) / entries.length);
   const chartWidth = rect.width - paddingLeft - paddingRight;
-  const colors = ["#d83f31", "#f0a51b", "#4f8a3d", "#4b9cc2", "#b369bc", "#d96d3b"];
+  const colors = ["#2f6f9f", "#7b5ea7", "#008b8b", "#c15f9f", "#5d6f84", "#8f6b32"];
 
   ctx.font = "12px Inter, system-ui, sans-serif";
   ctx.textBaseline = "middle";
